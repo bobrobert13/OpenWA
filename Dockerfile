@@ -25,7 +25,20 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# ===== Stage 2: Production =====
+# ===== Stage 2: Build Dashboard =====
+FROM node:22-alpine AS dash-builder
+
+WORKDIR /app
+
+COPY dashboard/package*.json dashboard/.npmrc ./
+
+RUN npm ci
+
+COPY dashboard/ .
+
+RUN npx vite build
+
+# ===== Stage 3: Production =====
 FROM node:22-slim AS production
 
 # Install Chrome/Chromium and required dependencies
@@ -68,6 +81,9 @@ RUN npm ci --omit=dev && npm cache clean --force
 
 # Copy built application from builder stage
 COPY --from=builder /app/dist ./dist
+
+# Copy built dashboard SPA
+COPY --from=dash-builder /app/dist ./dashboard-dist
 
 # Create data directories with proper permissions
 RUN mkdir -p ./data/sessions ./data/media && \

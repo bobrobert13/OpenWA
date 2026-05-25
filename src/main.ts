@@ -2,8 +2,10 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
+import express from 'express';
 import { AppModule } from './app.module';
 import { ShutdownService } from './common/services/shutdown.service';
+import { SpaFallbackFilter } from './common/filters/spa-fallback.filter';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -158,6 +160,17 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+
+  // ---- Dashboard SPA ----
+  const dashboardDist = path.join(process.cwd(), 'dashboard-dist');
+  if (fs.existsSync(dashboardDist)) {
+    const expressInstance = app.getHttpAdapter().getInstance();
+    expressInstance.use(express.static(dashboardDist));
+    console.log(`[Bootstrap] Dashboard served from: ${dashboardDist}`);
+  }
+
+  // SPA fallback: non-API 404s → serve index.html
+  app.useGlobalFilters(new SpaFallbackFilter());
 
   const port = process.env.PORT || 2785;
   await app.listen(port);
