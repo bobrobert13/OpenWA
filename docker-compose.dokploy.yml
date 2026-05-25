@@ -1,6 +1,7 @@
-# OpenWA - Dokploy Deploy Configuration
+# OpenWA - Dokploy Deploy Configuration v2
 # Solo necesitas setear DOMAIN en las variables de entorno.
 # El dashboard proxyea /api/* y /socket.io/* al backend automáticamente.
+# Entrypoint: dashboard service via Traefik label on port 80.
 
 services:
   # ===== CORE: OpenWA Backend API (interno, sin exponer) =====
