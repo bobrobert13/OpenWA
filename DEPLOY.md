@@ -1,82 +1,69 @@
 # Deployar OpenWA en Dokploy
 
-## Requisitos previos
+## Opción A — Docker Compose (recomendado si tu Dokploy lo tiene)
 
-- Dokploy corriendo en tu VPS
-- Dominio apuntando a tu VPS (registro A)
-- Repo de GitHub conectado a Dokploy
+1. **Create Service → Docker Compose**
+2. Provider: GitHub, tu repo, branch `openWa-dokploy`
+3. Llená:
+
+| Campo | Valor |
+|---|---|
+| Build Path | `/` |
+| Compose Path | `docker-compose.dokploy.yml` |
+
+4. En **Environment** pegá las variables de `.env.dokploy`.
+5. Deployá. Listo.
 
 ---
 
-## Paso 1 — Prepará las variables de entorno
+## Opción B — Application (Dockerfile único, el tipo que tenés ahora)
 
-Editá `.env.dokploy` con tus valores. **Lo único que tenés que cambiar:**
+1. Editá tu aplicación actual en Dokploy
+2. En **General**:
+
+| Campo | Valor |
+|---|---|
+| Docker File | `Dockerfile.dokploy` |
+| Docker Context Path | *(vacío)* |
+| Docker Build Stage | *(vacío)* |
+| Build Path | `/` |
+| Branch | `openWa-dokploy` |
+
+3. En **Environment** pegá las variables de `.env.dokploy` (incluí `DOMAIN`).
+4. En **Advanced → Ports**, agregá: puerto `80`
+5. En **Domains**, configurá tu dominio apuntando al puerto `80`:
+
+| Campo | Valor |
+|---|---|
+| Host | `openwa.treborjs-dev.online` |
+| Path | `/` |
+| Container Port | `80` |
+
+6. Deployá.
+
+---
+
+## Cómo funciona (ambas opciones)
+
+Imagen única (`Dockerfile.dokploy`) que contiene:
+
+- **API NestJS** corriendo en `localhost:2785` (interno)
+- **Dashboard React** servido como estáticos
+- **Nginx** en puerto 80 que:
+  - Sirve el dashboard SPA en `/`
+  - Proxyea `/api/*` y `/socket.io/*` al backend
+
+Un solo contenedor, un solo puerto. Sin dependencias entre servicios.
+
+---
+
+## Environment mínimo
 
 ```env
-DOMAIN=tu-dominio.com               # <-- tu dominio real
-API_MASTER_KEY=una-clave-segura     # <-- clave fuerte para autenticar
+DOMAIN=openwa.treborjs-dev.online
+API_MASTER_KEY=TU_CLAVE_SEGURA_AQUI
+NODE_ENV=production
+DATABASE_TYPE=sqlite
+ENGINE_TYPE=whatsapp-web.js
+STORAGE_TYPE=local
 ```
-
----
-
-## Paso 2 — Creá la aplicación en Dokploy
-
-1. Dokploy → **Applications** → **Create Application**
-2. Nombre: `openwa`
-3. Provider: **Docker Compose**
-4. Elegí tu repo, branch `main` (o `openWa-dokploy`)
-
-5. Campos a llenar:
-
-   | Campo | Valor |
-   |-------|-------|
-   | Build Path | `/` |
-   | Compose Path | `docker-compose.dokploy.yml` |
-   | (todo lo demás) | **vacío** |
-
-6. En **Environment**, pegá el contenido de `.env.dokploy`.
-
-7. Creá la aplicación.
-
----
-
-## Paso 3 — Deployá
-
-Eso es todo. Ni la pestaña **Domains** ni nada más. El compose ya tiene un label de Traefik que usa `${DOMAIN}` para rutear todo al dashboard. El dashboard internamente proxyea `/api/*` y `/socket.io/*` al backend.
-
-Abrí `http://tu-dominio.com` y listo.
-
----
-
-## Paso 4 (opcional) — HTTPS
-
-1. Dokploy → **Settings → Certificates** → agregá Let's Encrypt para tu dominio.
-2. Editá el compose y cambiá `entrypoints=web` por `entrypoints=websecure` en el label del dashboard.
-3. Deployá.
-
----
-
-## Paso 5 (opcional) — PostgreSQL o Redis
-
-1. Editá la aplicación → **Docker Compose Profiles**: `postgres,redis`
-2. Cambiá las variables:
-
-   ```env
-   DATABASE_TYPE=postgres
-   DATABASE_HOST=postgres
-   DATABASE_PASSWORD=openwa-seguro
-   REDIS_ENABLED=true
-   QUEUE_ENABLED=true
-   ```
-
-3. Re-deployá.
-
----
-
-## Solución de problemas
-
-### Bad Gateway
-Ambos servicios deben estar corriendo. El dashboard depende de `openwa-api` — si la API falla el healthcheck, el dashboard no arranca hasta que la API esté healthy. Revisá los logs del servicio `openwa-api`.
-
-### Las sesiones de WhatsApp se pierden al re-deployar
-El volumen `openwa-data` debe estar mapeado a `/app/data`. Confirmalo en los detalles del servicio.
