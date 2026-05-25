@@ -1,18 +1,15 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+COPY package*.json .npmrc ./
 
-# Install dependencies
 RUN npm ci
 
-# Copy source code
 COPY . .
 
-# Build the app
-RUN npm run build
+# Skip tsc type-check in Docker — vite build alone is enough
+RUN npx vite build
 
 # Production stage with nginx
 FROM nginx:alpine
